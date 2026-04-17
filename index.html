@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>影视聚合</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0c1020;
+        --card: #151a2e;
+        --text: #eef1ff;
+        --sub: #9ea7c8;
+        --brand: #6a7dff;
+        --border: rgba(255, 255, 255, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: radial-gradient(circle at top, #151a34, var(--bg) 45%);
+        color: var(--text);
+      }
+
+      .app {
+        min-height: 100vh;
+        padding: calc(12px + env(safe-area-inset-top)) 12px
+          calc(14px + env(safe-area-inset-bottom));
+        max-width: 560px;
+        margin: 0 auto;
+      }
+
+      .header {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        backdrop-filter: blur(12px);
+        background: rgba(12, 16, 32, 0.72);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+      }
+
+      .title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .desc {
+        margin: 6px 0 0;
+        color: var(--sub);
+        font-size: 13px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--card);
+        cursor: pointer;
+      }
+
+      .poster {
+        width: 100%;
+        aspect-ratio: 2 / 3;
+        object-fit: cover;
+        display: block;
+        background: #0f1326;
+      }
+
+      .meta {
+        padding: 9px 10px 11px;
+      }
+
+      .name {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+      }
+
+      .hint {
+        margin: 6px 0 0;
+        color: var(--sub);
+        font-size: 12px;
+      }
+
+      .empty {
+        padding: 24px 16px;
+        text-align: center;
+        color: var(--sub);
+      }
+
+      .player-layer {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        background: rgba(5, 8, 17, 0.9);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 14px;
+      }
+
+      .player-layer.show {
+        display: flex;
+      }
+
+      .player-box {
+        width: 100%;
+        max-width: 920px;
+        background: #0e1328;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+
+      .player-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 12px;
+      }
+
+      .player-title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .close-btn {
+        border: 0;
+        color: var(--text);
+        background: #202745;
+        border-radius: 8px;
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      video {
+        width: 100%;
+        background: #000;
+        display: block;
+        max-height: 72vh;
+      }
+
+      .player-note {
+        margin: 0;
+        padding: 10px 12px 12px;
+        color: var(--sub);
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <h1 class="title">影视聚合</h1>
+        <p class="desc">点击卡片即可播放（支持 m3u8）。</p>
+      </header>
+
+      <section id="grid" class="grid"></section>
+      <p id="empty" class="empty" hidden>暂无数据，请先生成并检查 data.json。</p>
+    </main>
+
+    <section id="playerLayer" class="player-layer" aria-hidden="true">
+      <div class="player-box">
+        <div class="player-top">
+          <p id="playerTitle" class="player-title">正在播放</p>
+          <button id="closeBtn" class="close-btn" type="button">×</button>
+        </div>
+        <video id="video" controls playsinline webkit-playsinline></video>
+        <p class="player-note">如果无法播放，请确认 data.json 中包含可访问的 m3u8 链接。</p>
+      </div>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+      const gridEl = document.getElementById("grid");
+      const emptyEl = document.getElementById("empty");
+      const layerEl = document.getElementById("playerLayer");
+      const closeBtn = document.getElementById("closeBtn");
+      const playerTitleEl = document.getElementById("playerTitle");
+      const videoEl = document.getElementById("video");
+      let hls;
+
+      function destroyPlayer() {
+        videoEl.pause();
+        videoEl.removeAttribute("src");
+        videoEl.load();
+        if (hls) {
+          hls.destroy();
+          hls = null;
+        }
+      }
+
+      function closePlayer() {
+        layerEl.classList.remove("show");
+        layerEl.setAttribute("aria-hidden", "true");
+        destroyPlayer();
+      }
+
+      function playM3u8(url, title) {
+        playerTitleEl.textContent = title || "正在播放";
+        layerEl.classList.add("show");
+        layerEl.setAttribute("aria-hidden", "false");
+
+        destroyPlayer();
+        if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+          videoEl.src = url;
+        } else if (window.Hls && Hls.isSupported()) {
+          hls = new Hls();
+          hls.loadSource(url);
+          hls.attachMedia(videoEl);
+        } else {
+          alert("当前浏览器不支持 m3u8 播放。");
+          return;
+        }
+        videoEl.play().catch(() => {});
+      }
+
+      function pickM3u8(item) {
+        return item.m3u8 || item.m3u8_url || item.video_url || "";
+      }
+
+      function renderCards(items) {
+        if (!Array.isArray(items) || items.length === 0) {
+          emptyEl.hidden = false;
+          return;
+        }
+        const html = items
+          .map((item) => {
+            const title = item.title || "未命名";
+            const poster = item.poster || "";
+            return `
+              <article class="card" data-title="${encodeURIComponent(
+                title
+              )}" data-url="${encodeURIComponent(pickM3u8(item))}">
+                <img class="poster" loading="lazy" src="${poster}" alt="${title}" />
+                <div class="meta">
+                  <h3 class="name">${title}</h3>
+                  <p class="hint">点击播放</p>
+                </div>
+              </article>
+            `;
+          })
+          .join("");
+        gridEl.innerHTML = html;
+      }
+
+      async function loadData() {
+        try {
+          const res = await fetch("./data.json");
+          const items = await res.json();
+          renderCards(items);
+        } catch (err) {
+          console.error(err);
+          emptyEl.hidden = false;
+          emptyEl.textContent = "读取 data.json 失败，请确认文件存在。";
+        }
+      }
+
+      gridEl.addEventListener("click", (e) => {
+        const card = e.target.closest(".card");
+        if (!card) return;
+        const title = decodeURIComponent(card.dataset.title || "");
+        const url = decodeURIComponent(card.dataset.url || "");
+        if (!url) {
+          alert("该卡片没有 m3u8 链接，请在 data.json 中补充 m3u8 字段。");
+          return;
+        }
+        playM3u8(url, title);
+      });
+
+      closeBtn.addEventListener("click", closePlayer);
+      layerEl.addEventListener("click", (e) => {
+        if (e.target === layerEl) closePlayer();
+      });
+
+      loadData();
+    </script>
+  </body>
+</html>
