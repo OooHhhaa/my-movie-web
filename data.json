@@ -1,0 +1,20 @@
+[
+  {
+    "title": "示例影片：Big Buck Bunny",
+    "poster": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&q=80",
+    "play_url": "https://example.com/play/big-buck-bunny",
+    "m3u8": "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
+  },
+  {
+    "title": "示例影片：Sintel Trailer",
+    "poster": "https://images.unsplash.com/photo-1440404653325-ab127d49abc1?auto=format&fit=crop&w=800&q=80",
+    "play_url": "https://example.com/play/sintel",
+    "m3u8": "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8"
+  },
+  {
+    "title": "示例影片：Tears of Steel",
+    "poster": "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=800&q=80",
+    "play_url": "https://example.com/play/tears-of-steel",
+    "m3u8": "https://test-streams.mux.dev/tears-of-steel/playlist.m3u8"
+  }
+]

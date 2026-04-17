@@ -208,6 +208,20 @@
       const playerTitleEl = document.getElementById("playerTitle");
       const videoEl = document.getElementById("video");
       let hls;
+      const fallbackItems = [
+        {
+          title: "示例影片：Big Buck Bunny",
+          poster:
+            "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&q=80",
+          m3u8: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+        },
+        {
+          title: "示例影片：Sintel Trailer",
+          poster:
+            "https://images.unsplash.com/photo-1440404653325-ab127d49abc1?auto=format&fit=crop&w=800&q=80",
+          m3u8: "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8",
+        },
+      ];
 
       function destroyPlayer() {
         videoEl.pause();
@@ -274,14 +288,23 @@
       }
 
       async function loadData() {
+        if (location.protocol === "file:") {
+          renderCards(fallbackItems);
+          return;
+        }
         try {
           const res = await fetch("./data.json");
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
           const items = await res.json();
           renderCards(items);
         } catch (err) {
           console.error(err);
+          renderCards(fallbackItems);
           emptyEl.hidden = false;
-          emptyEl.textContent = "读取 data.json 失败，请确认文件存在。";
+          emptyEl.textContent =
+            "读取 data.json 失败，已切换到内置演示数据。建议使用本地服务器打开（如 npx serve .）。";
         }
       }
 
