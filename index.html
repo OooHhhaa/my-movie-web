@@ -290,21 +290,43 @@
       async function loadData() {
         if (location.protocol === "file:") {
           renderCards(fallbackItems);
+          emptyEl.hidden = false;
+          emptyEl.textContent =
+            "当前是本地文件模式，无法实时抓取。部署后会自动使用 /api/data 实时更新。";
           return;
         }
         try {
-          const res = await fetch("./data.json");
+          const res = await fetch("/api/data?limit=24", { cache: "no-store" });
           if (!res.ok) {
             throw new Error(`HTTP ${res.status}`);
           }
           const items = await res.json();
+          if (!Array.isArray(items) || items.length === 0) {
+            throw new Error("empty realtime data");
+          }
           renderCards(items);
         } catch (err) {
           console.error(err);
-          renderCards(fallbackItems);
-          emptyEl.hidden = false;
-          emptyEl.textContent =
-            "读取 data.json 失败，已切换到内置演示数据。建议使用本地服务器打开（如 npx serve .）。";
+          try {
+            const backupRes = await fetch("./data.json");
+            if (!backupRes.ok) {
+              throw new Error(`backup HTTP ${backupRes.status}`);
+            }
+            const backupItems = await backupRes.json();
+            if (Array.isArray(backupItems) && backupItems.length > 0) {
+              renderCards(backupItems);
+              emptyEl.hidden = false;
+              emptyEl.textContent = "实时数据抓取失败，已回退到本地 data.json。";
+              return;
+            }
+            throw new Error("backup empty");
+          } catch (backupErr) {
+            console.error(backupErr);
+            renderCards(fallbackItems);
+            emptyEl.hidden = false;
+            emptyEl.textContent =
+              "实时抓取和本地 data.json 都失败，已切换到内置演示数据。";
+          }
         }
       }
 
