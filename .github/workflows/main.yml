@@ -1,0 +1,58 @@
+name: Update data.json
+
+on:
+  schedule:
+    # GitHub Actions 的 cron 是 UTC。
+    # 为兼容 Australia/Sydney 夏令时切换，分别在 17:00 和 18:00 UTC 触发，
+    # 然后在步骤里判断悉尼本地时间是否为 04:00。
+    - cron: "0 17 * * *"
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scrape-and-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check Sydney local time is 04:00
+        id: sydney_time_check
+        run: |
+          SYDNEY_HOUR=$(TZ=Australia/Sydney date +%H)
+          echo "Sydney hour now: ${SYDNEY_HOUR}"
+          if [ "${SYDNEY_HOUR}" = "04" ]; then
+            echo "run_scrape=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_scrape=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run scraper
+        if: steps.sydney_time_check.outputs.run_scrape == 'true' || github.event_name == 'workflow_dispatch'
+        run: python scrape_iyf_home.py
+
+      - name: Commit and push if data.json changed
+        if: steps.sydney_time_check.outputs.run_scrape == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- data.json; then
+            echo "data.json has no changes."
+            exit 0
+          fi
+
+          git add data.json
+          git commit -m "chore: update data.json"
+          git push

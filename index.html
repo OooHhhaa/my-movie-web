@@ -289,11 +289,28 @@
 
       async function loadData() {
         if (location.protocol === "file:") {
-          renderCards(fallbackItems);
-          emptyEl.hidden = false;
-          emptyEl.textContent =
-            "当前是本地文件模式，无法实时抓取。部署后会自动使用 /api/data 实时更新。";
-          return;
+          try {
+            const localRes = await fetch("./data.json", { cache: "no-store" });
+            if (!localRes.ok) {
+              throw new Error(`local file HTTP ${localRes.status}`);
+            }
+            const localItems = await localRes.json();
+            if (!Array.isArray(localItems) || localItems.length === 0) {
+              throw new Error("local data.json is empty");
+            }
+            renderCards(localItems);
+            emptyEl.hidden = false;
+            emptyEl.textContent =
+              "当前是本地文件模式，已优先加载 data.json。";
+            return;
+          } catch (localErr) {
+            console.error(localErr);
+            renderCards(fallbackItems);
+            emptyEl.hidden = false;
+            emptyEl.textContent =
+              "本地模式读取 data.json 失败，已回退到内置演示数据。";
+            return;
+          }
         }
         try {
           const res = await fetch("/api/data?limit=24", { cache: "no-store" });
@@ -305,7 +322,9 @@
             throw new Error("empty realtime data");
           }
           renderCards(items);
-        } catch (err) {
+          return;
+        }
+        catch (err) {
           console.error(err);
           try {
             const backupRes = await fetch("./data.json");
